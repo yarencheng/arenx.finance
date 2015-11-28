@@ -5,24 +5,34 @@
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
 	version="2.0">
 
-	<!-- JDO tutorial "unit" -->
-	<persistence-unit name="Tutorial">
+	<!-- YAHOO YQL -->
+	<persistence-unit name="YahooYQL">
 		<properties>
-			<property name="javax.jdo.option.ConnectionURL" value="jdbc:sqlite:test.db" />
+			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/YahooYQL.derby;create=true" />
 			<property name="javax.jdo.option.ConnectionDriverName"
-				value="org.sqlite.JDBC" />
+				value="org.apache.derby.jdbc.EmbeddedDriver" />
 			<property name="javax.jdo.option.ConnectionUserName" value="" />
 			<property name="javax.jdo.option.ConnectionPassword" value="" />
 			<property name="datanucleus.schema.autoCreateAll" value="true" />
 			<property name="datanucleus.schema.validateTables" value="false" />
 			<property name="datanucleus.schema.validateConstraints"
 				value="false" />
-				
-			<property name="datanucleus.ConnectionDriverName" value="org.sqlite.JDBC" />
-			<property name="datanucleus.ConnectionURL" value="jdbc:sqlite:test.db" />
-			
-		
-				
 		</properties>
 	</persistence-unit>
+	
+	<!-- TWSE 台灣證交所 -->
+	<persistence-unit name="TWSE">
+		<properties>
+			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/TWSE.derby;create=true" />
+			<property name="javax.jdo.option.ConnectionDriverName"
+				value="org.apache.derby.jdbc.EmbeddedDriver" />
+			<property name="javax.jdo.option.ConnectionUserName" value="" />
+			<property name="javax.jdo.option.ConnectionPassword" value="" />
+			<property name="datanucleus.schema.autoCreateAll" value="true" />
+			<property name="datanucleus.schema.validateTables" value="false" />
+			<property name="datanucleus.schema.validateConstraints"
+				value="false" />
+		</properties>
+	</persistence-unit>
+
 </persistence>
