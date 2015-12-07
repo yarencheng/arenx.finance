@@ -13,8 +13,17 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+
+import javax.jdo.JDOHelper;
+import javax.jdo.annotations.PersistenceCapable;
 
 import org.apache.commons.lang3.reflect.MethodUtils;
+import org.datanucleus.PersistenceNucleusContext;
+import org.datanucleus.api.jdo.JDOPersistenceManagerFactory;
+import org.datanucleus.store.StoreManager;
+import org.datanucleus.store.schema.SchemaAwareStoreManager;
 import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,29 +63,32 @@ public class Tool {
 		Map<Future<?>,Runnable> future_runnable_map=Collections.synchronizedMap(new HashMap<Future<?>, Runnable>());
 		Map<Future<?>,Integer> future_retry_map=Collections.synchronizedMap(new HashMap<Future<?>, Integer>());
 		
-		boolean isWalked=false;
-		boolean isStart=false;
+		AtomicBoolean isWalked=new AtomicBoolean(false);
+		AtomicBoolean isStart=new AtomicBoolean(false);
+		
+		Map<Runnable,Boolean> runnable_isSSuccess_map=Collections.synchronizedMap(new HashMap<Runnable, Boolean>());
 	}
 	
 	public static void updateAll_(){
-		Set<UpdateTask>taskSet = Collections.synchronizedSet(updateAll_getTaskSet());
-		updateAll_updatedependentTaskSet(taskSet);
-		updateAll_checkDepedentLoop(taskSet);
-		updateAll_checkMethod(taskSet);
+		Set<UpdateTask>todoTaskSet = Collections.synchronizedSet(updateAll_getTaskSet());
+		Set<UpdateTask>taskSet = new HashSet<UpdateTask>(todoTaskSet);
+		updateAll_updatedependentTaskSet(todoTaskSet);
+		updateAll_checkDepedentLoop(todoTaskSet);
+		updateAll_checkMethod(todoTaskSet);
 		
 		
-		Map<Class<?>,Set<Method>>pendingMap=Collections.synchronizedMap(updateAll_getPendingMap(taskSet));
+		Map<Class<?>,Set<Method>>pendingMap=Collections.synchronizedMap(updateAll_getPendingMap(todoTaskSet));
 		Set<Class<?>>finishSet=Collections.synchronizedSet(new HashSet<Class<?>>());
 		Set<Class<?>>failSet=Collections.synchronizedSet(new HashSet<Class<?>>());
 		ExecutorService executorService = Executors.newFixedThreadPool(20);
 		Thread tryRunAllTask=new Thread(){
 			public void run(){
-				updateAll_tryRunAllMethod(executorService,finishSet,failSet,new HashSet<UpdateTask>(taskSet));
+				updateAll_tryRunAllMethod(executorService,finishSet,failSet,new HashSet<UpdateTask>(todoTaskSet));
 			}
 		};
 		Thread monitorAllTask=new Thread(){
 			public void run(){
-				updateAll_scanFinishTask(executorService,finishSet,failSet,pendingMap,new HashSet<UpdateTask>(taskSet));
+				updateAll_scanFinishTask(executorService,finishSet,failSet,pendingMap,new HashSet<UpdateTask>(todoTaskSet));
 			}
 		};
 		tryRunAllTask.start();
@@ -91,19 +103,30 @@ public class Tool {
 		}
 		logger.debug("shutdown executorService");
 		executorService.shutdown();
+		updateAll_logFailTask(taskSet);
 		logger.info("finish");
 	}
 	
-	private static void updateAll_scanFinishTask(ExecutorService executorService, Set<Class<?>>finishSet,Set<Class<?>>failSet,Map<Class<?>,Set<Method>>pendingMap,Set<UpdateTask>taskSet){
-		while(taskSet.isEmpty()==false){
+	private static void updateAll_logFailTask(Set<UpdateTask>taskSet){
+		taskSet.forEach(t->{
+			t.runnable_isSSuccess_map.forEach((k,v)->{
+				if(!v){
+					logger.warn("Failed task {}:{}:{}", t.parentClazz.getSimpleName(), t.method.getName(), k);
+				}
+			});
+		});
+	}
+	
+	private static void updateAll_scanFinishTask(ExecutorService executorService, Set<Class<?>>finishSet,Set<Class<?>>failSet,Map<Class<?>,Set<Method>>pendingMap,Set<UpdateTask>todoTaskSet){
+		while(todoTaskSet.isEmpty()==false){
 			UpdateTask nextTask=null;
 			LOOP:
-			for(UpdateTask task:taskSet){
+			for(UpdateTask task:todoTaskSet){
 				if(failSet.contains(task.parentClazz)){
 					nextTask = task;
 					break;
 				}
-				if(task.isStart==false){
+				if(task.isStart.get()==false){
 					continue;
 				}
 				for(Future<?>future:task.future_runnable_map.keySet()){
@@ -115,16 +138,20 @@ public class Tool {
 				
 				boolean isFail=false;
 				boolean isRetry=false;
-				for(Future<?>future:task.future_runnable_map.keySet()){
+				for(Future<?>future:new HashSet<Future<?>>(task.future_runnable_map.keySet())){
 					try {
 						future.get();
+						task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), true);
+						logger.info("sucess to execute runnable: '{}' of method: '{}'",task.future_runnable_map.get(future), task.method.getName());
 					} catch (InterruptedException | ExecutionException e) {
+						task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), false);
 						isFail=true;
-						logger.warn("fail to execute runnable: '{}' of method: '{}', cause by: '{}'",task.future_runnable_map.get(future), task.method, e.getMessage());
+						logger.warn("fail to execute runnable: '{}' of method: '{}', cause by: '{}'",task.future_runnable_map.get(future), task.method.getName(), e.getMessage());
 						logger.debug(e.getMessage(),e);
 						int retry = task.future_retry_map.get(future)+1;
 						if(retry<=task.method.getDeclaredAnnotation(Updatable.class).retry()){
-							logger.warn("retry: '{}'",task.future_runnable_map.get(future));
+							task.future_runnable_map.get(future);
+							logger.warn("retry: '{}' of '{}'",task.future_runnable_map.get(future),  task.method.getName());
 							isRetry=true;
 							Future<?>future_new=executorService.submit(task.future_runnable_map.get(future));
 							task.future_runnable_map.put(future_new,task.future_runnable_map.get(future));
@@ -151,7 +178,7 @@ public class Tool {
 				break;
 			}
 			if(nextTask!=null){
-				taskSet.remove(nextTask);
+				todoTaskSet.remove(nextTask);
 			}else
 				try {
 					Thread.sleep(10);
@@ -161,12 +188,12 @@ public class Tool {
 		}
 	}
 	
-	private static void updateAll_tryRunAllMethod(ExecutorService executorService,Set<Class<?>>finishSet,Set<Class<?>>failSet, Set<UpdateTask>taskSet){
+	private static void updateAll_tryRunAllMethod(ExecutorService executorService,Set<Class<?>>finishSet,Set<Class<?>>failSet, Set<UpdateTask>todoTaskSet){
 		
-		while(taskSet.isEmpty()==false){
+		while(todoTaskSet.isEmpty()==false){
 			UpdateTask nextTask=null;
 			LOOP:
-			for(UpdateTask task:taskSet){
+			for(UpdateTask task:todoTaskSet){
 				if(finishSet.containsAll(task.dependentClassSet)){
 					Collection<Runnable>runableSet=updateAll_getRunnableSet(task.method);
 					logger.info("add to queue with {} tasks of {} method",  runableSet.size(),task.method);
@@ -175,7 +202,7 @@ public class Tool {
 						task.future_runnable_map.put(future,runnable);
 						task.future_retry_map.put(future,0);
 					}
-					task.isStart=true;
+					task.isStart.set(true);
 					nextTask=task;
 					break;
 				}
@@ -189,7 +216,7 @@ public class Tool {
 				}
 			}
 			if(nextTask!=null)
-				taskSet.remove(nextTask);
+				todoTaskSet.remove(nextTask);
 			else
 				try {
 					Thread.sleep(10);
@@ -230,9 +257,9 @@ public class Tool {
 		}
 	}
 	
-	private static Map<Class<?>,Set<Method>> updateAll_getPendingMap(Set<UpdateTask>taskSet){
+	private static Map<Class<?>,Set<Method>> updateAll_getPendingMap(Set<UpdateTask>todoTaskSet){
 		Map<Class<?>,Set<Method>> map = new HashMap<Class<?>, Set<Method>>();
-		for(UpdateTask u:taskSet){
+		for(UpdateTask u:todoTaskSet){
 			Set<Method>set=map.get(u.parentClazz);
 			if(set==null){
 				set=new HashSet<Method>();
@@ -243,8 +270,8 @@ public class Tool {
 		return map;
 	}
 	
-	private static void updateAll_checkMethod(Set<UpdateTask>taskSet){
-		taskSet.stream()
+	private static void updateAll_checkMethod(Set<UpdateTask>todoTaskSet){
+		todoTaskSet.stream()
 			.map((x)->x.method)
 			.forEach((x)->{
 				if(!Modifier.isStatic(x.getModifiers())){
@@ -261,10 +288,10 @@ public class Tool {
 			});;
 	}
 	
-	private static void updateAll_checkDepedentLoop(Set<UpdateTask>taskSet){
-		for(UpdateTask u:taskSet){
+	private static void updateAll_checkDepedentLoop(Set<UpdateTask>todoTaskSet){
+		for(UpdateTask u:todoTaskSet){
 			updateAll_checkDepedentLoop_recur(u,0);
-			u.isWalked=false;
+			u.isWalked.set(false);
 		}
 	}
 	
@@ -276,19 +303,19 @@ public class Tool {
 			sb.append(task.method.toString());
 			logger.debug(sb.toString());
 		}
-		if(task.isWalked)
+		if(task.isWalked.get())
 			throw new RuntimeException(String.format("infinite depedency loop found with method '%s' in '%s'",task.method, task.parentClazz));
-		task.isWalked=true;
+		task.isWalked.set(true);
 		for(UpdateTask u:task.dependentTaskSet){
 			updateAll_checkDepedentLoop_recur(u,level+1);
-			u.isWalked=false;
+			u.isWalked.set(false);
 		}
 	}
 	
-	private static void updateAll_updatedependentTaskSet(Set<UpdateTask>taskSet){
-		for(UpdateTask u1:taskSet){
+	private static void updateAll_updatedependentTaskSet(Set<UpdateTask>todoTaskSet){
+		for(UpdateTask u1:todoTaskSet){
 			for(Class<?>dc:u1.dependentClassSet){
-				for(UpdateTask u2:taskSet){
+				for(UpdateTask u2:todoTaskSet){
 					if(u2.parentClazz.equals(dc)){
 						logger.debug("'{}' is dependent on'{}'",u1.method, u2.method);
 						u1.dependentTaskSet.add(u2);
@@ -315,7 +342,14 @@ public class Tool {
 		return taskSet;
 	}
 	
-
+	public static void createAllSchema(){
+		JDOPersistenceManagerFactory d=(JDOPersistenceManagerFactory) JDOHelper.getPersistenceManagerFactory("arenx.finance");
+		PersistenceNucleusContext p =d.getNucleusContext();
+		StoreManager s=p.getStoreManager();
+		SchemaAwareStoreManager sa=(SchemaAwareStoreManager) s;
+		Reflections reflections = new Reflections("arenx.finance");
+		sa.createSchemaForClasses(reflections.getTypesAnnotatedWith(PersistenceCapable.class).stream().map(m->m.getName()).collect(Collectors.toSet()), null);
+	}
 	
 
 }

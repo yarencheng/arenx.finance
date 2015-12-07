@@ -8,6 +8,8 @@ public class Main {
 	final static Logger logger = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] argv)  {
+		Tool.createAllSchema();
 		Tool.updateAll_();
+		
 	}
 }

@@ -5,33 +5,18 @@
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
 	version="2.0">
 
-	<!-- YAHOO YQL -->
-	<persistence-unit name="YahooYQL">
+	<persistence-unit name="arenx.finance">
 		<properties>
-			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/YahooYQL.derby;create=true" />
+			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/arenx.finance.derby;create=true" />
 			<property name="javax.jdo.option.ConnectionDriverName"
 				value="org.apache.derby.jdbc.EmbeddedDriver" />
 			<property name="javax.jdo.option.ConnectionUserName" value="" />
 			<property name="javax.jdo.option.ConnectionPassword" value="" />
-			<property name="datanucleus.schema.autoCreateAll" value="true" />
-			<property name="datanucleus.schema.validateTables" value="false" />
+			<property name="datanucleus.schema.autoCreateTables" value="true" />
+			<property name="datanucleus.schema.autoCreateAll" value="false" />
+			<property name="datanucleus.schema.validateTables" value="true" />
 			<property name="datanucleus.schema.validateConstraints"
-				value="false" />
-		</properties>
-	</persistence-unit>
-	
-	<!-- TWSE 台灣證交所 -->
-	<persistence-unit name="TWSE">
-		<properties>
-			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/TWSE.derby;create=true" />
-			<property name="javax.jdo.option.ConnectionDriverName"
-				value="org.apache.derby.jdbc.EmbeddedDriver" />
-			<property name="javax.jdo.option.ConnectionUserName" value="" />
-			<property name="javax.jdo.option.ConnectionPassword" value="" />
-			<property name="datanucleus.schema.autoCreateAll" value="true" />
-			<property name="datanucleus.schema.validateTables" value="false" />
-			<property name="datanucleus.schema.validateConstraints"
-				value="false" />
+				value="true" />
 		</properties>
 	</persistence-unit>
 
