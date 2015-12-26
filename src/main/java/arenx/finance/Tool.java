@@ -80,7 +80,7 @@ public class Tool {
 		Map<Class<?>,Set<Method>>pendingMap=Collections.synchronizedMap(updateAll_getPendingMap(todoTaskSet));
 		Set<Class<?>>finishSet=Collections.synchronizedSet(new HashSet<Class<?>>());
 		Set<Class<?>>failSet=Collections.synchronizedSet(new HashSet<Class<?>>());
-		ExecutorService executorService = Executors.newFixedThreadPool(20);
+		ExecutorService executorService = Executors.newFixedThreadPool(2);
 		Thread tryRunAllTask=new Thread(){
 			public void run(){
 				updateAll_tryRunAllMethod(executorService,finishSet,failSet,new HashSet<UpdateTask>(todoTaskSet));
@@ -141,10 +141,12 @@ public class Tool {
 				for(Future<?>future:new HashSet<Future<?>>(task.future_runnable_map.keySet())){
 					try {
 						future.get();
-						task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), true);
-						logger.info("sucess to execute runnable: '{}' of method: '{}'",task.future_runnable_map.get(future), task.method.getName());
+						Boolean isSuccess = task.runnable_isSSuccess_map.get(future);
+						if(isSuccess==null || !isSuccess){
+							task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), true);
+							logger.info("sucess to execute runnable: '{}' of method: '{}'",task.future_runnable_map.get(future), task.method.getName());
+						}
 					} catch (InterruptedException | ExecutionException e) {
-						task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), false);
 						isFail=true;
 						logger.warn("fail to execute runnable: '{}' of method: '{}', cause by: '{}'",task.future_runnable_map.get(future), task.method.getName(), e.getMessage());
 						logger.debug(e.getMessage(),e);
@@ -158,6 +160,9 @@ public class Tool {
 							task.future_retry_map.put(future_new,retry);
 							task.future_runnable_map.remove(future);
 							task.future_retry_map.remove(future);
+						}else{
+							// can't retry
+							task.runnable_isSSuccess_map.put(task.future_runnable_map.get(future), false);
 						}
 					}
 				}

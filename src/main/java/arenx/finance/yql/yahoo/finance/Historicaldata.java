@@ -21,12 +21,12 @@ import arenx.finance.annotation.Updatable;
 import arenx.finance.twse.Stock;
 import arenx.finance.yql.YQL;
 
-@Updatable(depedentClass={Stock.class})
+//@Updatable(depedentClass={Stock.class})
 public class Historicaldata{
 
 	private final static Logger logger = LoggerFactory.getLogger(Historicaldata.class);
 	
-	@Updatable
+//	@Updatable(retry=10)
 	public static List<Runnable> updateDatabase() {
 		List<Runnable>runnables=new LinkedList();
 		for(String symbol:Stock.getStockIDForYahooFinance(Stock.getAll())){
@@ -173,75 +173,19 @@ public class Historicaldata{
 			pm.close();
 		}
 	}
-
-	/**
-	 * 
-	 * @param symbols
-	 * @return list of symbols which fails to update
-	 */
-	/*public static List<String> updateRemoteToLocalDatabase(List<String> symbols) {
-		int count = 0;
-		List<String>failSymbol=new ArrayList<String>();
+	
+	public static List<String> getAllSymbol(){
 		PersistenceManager pm = YQL.getPersistenceManager();
-		try{
-			Calendar nowCalendar = Calendar.getInstance();
-			nowCalendar.add(Calendar.DAY_OF_YEAR, 2);
-			LOOP_SYMBOL:
-			for(String symbol:symbols){
-				logger.info("update symbol: {}", symbol);
-				Query query=pm.newQuery(HistoricaldataBean.class);
-				query.setFilter(String.format("symbol=='%s'", symbol));
-				query.setOrdering("date desc");
-				query.setRange(0, 1);
-				query.setResult("date");
-				logger.debug("query: {}", query);
-				List<Date> dates= (List<Date>) query.execute();
-				logger.debug("dates: {}", dates);
-				Calendar startCalendar;
-				Calendar endCalendar;
-				if(dates.isEmpty()){
-					startCalendar = new Calendar.Builder().setDate(2010, 0, 1).build();
-					endCalendar = new Calendar.Builder().setDate(2010, 6, 30).build();
-				}else{
-					Calendar calendar = Calendar.getInstance();
-					calendar.setTime(dates.get(0));
-					calendar.add(Calendar.DAY_OF_YEAR, 1);
-					startCalendar = (Calendar) calendar.clone();
-					calendar.add(Calendar.MONTH, 6);
-					endCalendar = (Calendar) calendar.clone();
-				}
-				while(startCalendar.before(nowCalendar)){
-					logger.debug("startCalendar: {}, endDate: {}", startCalendar.getTime(), endCalendar.getTime());
-					List<HistoricaldataBean> beans=null;
-					try{
-						beans=getFromYql(symbol,startCalendar.getTime(),endCalendar.getTime());
-					}catch (Throwable e){
-						logger.warn("fail to update symbol: "+symbol);
-						logger.debug("fail to update symbol: "+symbol,e);
-						failSymbol.add(symbol);
-						continue LOOP_SYMBOL;
-					}
-					logger.debug("beans.length: {}", beans.size());
-					if(beans.size()==0)
-						break;
-					if(logger.isDebugEnabled())
-						logger.debug("beans[0]: {}, beans[{}]: {}", beans.get(0), beans.size()-1, beans.get(beans.size()-1));
-					pm.makePersistentAll(beans);
-					count+=beans.size();
-					startCalendar = (Calendar) endCalendar.clone();
-					startCalendar.add(Calendar.DAY_OF_YEAR, 1);
-					endCalendar.add(Calendar.MONTH, 6);
-				}
-			}
-		}catch (Throwable e){
-			logger.error(e.getMessage());
-			throw e;
-		}finally{
-			logger.info("update {} records from sybols: {}", count, symbols);
+		try {
+			Query query = pm.newQuery(HistoricaldataBean.class);
+			query.setResult("symbol");
+			query.setGrouping("symbol");
+			List<String>list=(List<String>) query.execute();
+			return list;
+		} finally {
 			pm.close();
 		}
-		return failSymbol;
-	}*/
+	}
 
 	private static class HistoricaldataResults {
 		@Override

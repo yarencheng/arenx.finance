@@ -23,27 +23,27 @@ public class HistoricaldataBean {
 		return date;
 	}
 
-	public double getOpen() {
+	public Double getOpen() {
 		return open;
 	}
 
-	public double getHigh() {
+	public Double getHigh() {
 		return high;
 	}
 
-	public double getLow() {
+	public Double getLow() {
 		return low;
 	}
 
-	public double getClose() {
+	public Double getClose() {
 		return close;
 	}
 
-	public long getVolume() {
+	public Long getVolume() {
 		return volume;
 	}
 
-	public double getAdjClose() {
+	public Double getAdjClose() {
 		return adjClose;
 	}
 

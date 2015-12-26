@@ -5,7 +5,7 @@
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
 	version="2.0">
 
-	<persistence-unit name="arenx.finance">
+	<persistence-unit name="arenx.finance_">
 		<properties>
 			<property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:db/arenx.finance.derby;create=true" />
 			<property name="javax.jdo.option.ConnectionDriverName"
@@ -17,6 +17,27 @@
 			<property name="datanucleus.schema.validateTables" value="true" />
 			<property name="datanucleus.schema.validateConstraints"
 				value="true" />
+		</properties>
+	</persistence-unit>
+	<persistence-unit name="arenx.finance">
+		<properties>
+			<property name="javax.jdo.option.ConnectionURL" value="jdbc:h2:./db/arenx.finance.h2" />
+			<property name="javax.jdo.option.ConnectionDriverName"
+				value="org.h2.Driver" />
+			<property name="javax.jdo.option.ConnectionUserName" value="" />
+			<property name="javax.jdo.option.ConnectionPassword" value="" />
+			<property name="datanucleus.schema.autoCreateTables" value="true" />
+			<property name="datanucleus.schema.autoCreateAll" value="false" />
+			<property name="datanucleus.schema.validateTables" value="false" />
+			<property name="datanucleus.schema.validateConstraints"
+				value="false" />
+
+			<property name="datanucleus.connectionPoolingType" value="DBCP"/>
+<!-- 			<property name="datanucleus.connectionPool.maxIdle" value="10"/> -->
+<!-- 			<property name="datanucleus.connectionPool.minIdle" value="3"/> -->
+<!-- 			<property name="datanucleus.connectionPool.maxActive" value="5"/> -->
+<!-- 			<property name="datanucleus.connectionPool.maxWait" value="60"/> -->
+			<property name="datanucleus.connectionPool.maxWait.maxTotal" value="-1"/>
 		</properties>
 	</persistence-unit>
 

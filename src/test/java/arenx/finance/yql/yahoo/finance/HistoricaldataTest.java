@@ -17,7 +17,9 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
@@ -161,5 +163,25 @@ public class HistoricaldataTest {
 		pm.close();
 		assertEquals(expectedBean.size(), actualBean.size());
 		assertTrue(actualBean.containsAll(expectedBean));
+	}
+	
+	@Test
+	public void getAllSymbol() throws JsonParseException, JsonMappingException, IOException{
+		// prepare
+		String json = "[{\"Symbol\":\"test1\",\"Date\":\"2010-08-13\"},{\"Symbol\":\"test2\",\"Date\":\"2010-08-13\"},"
+				+ "{\"Symbol\":\"test1\",\"Date\":\"2010-08-14\"},{\"Symbol\":\"test2\",\"Date\":\"2010-08-14\"}]";
+		List<HistoricaldataBean> beans = mapper.readValue(json, TypeFactory.defaultInstance().constructCollectionType(List.class, HistoricaldataBean.class));
+		PersistenceManager pm = pmf.getPersistenceManager();
+		pm.makePersistentAll(beans);
+		pm.close();
+
+		// action
+		List<String>symbols=Historicaldata.getAllSymbol();
+		logger.debug("symbols: {}", symbols);
+		
+		// verify
+		assertEquals(2, symbols.size());
+		assertTrue(symbols.contains("test1"));
+		assertTrue(symbols.contains("test2"));
 	}
 }

@@ -26,7 +26,7 @@ import com.google.common.collect.Lists;
 import arenx.finance.Tool;
 import arenx.finance.annotation.Updatable;
 
-@Updatable
+//@Updatable
 public class Stock {
 
 	private final static Logger logger = LoggerFactory.getLogger(Stock.class);
@@ -42,7 +42,7 @@ public class Stock {
 		return pm;
 	}
 	
-	@Updatable
+//	@Updatable
 	public static void update(){
 		insert(getFromTwscWebsite(),true);
 	}
