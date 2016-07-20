@@ -7,7 +7,7 @@ import javax.jdo.annotations.Persistent;
 import javax.jdo.annotations.PrimaryKey;
 
 @PersistenceCapable(table="stock",detachable="true")
-public class StockBean {
+public class TwseStockBean {
 	@PrimaryKey
 	private String ISINcode;
 	@Persistent
@@ -22,8 +22,18 @@ public class StockBean {
 	private String industryType;
 	@Persistent
 	private String CFICode;
+	@Persistent
+	private Date updateDate;
 
-	public StockBean(String ISINcode){
+	public Date getUpdateDate() {
+		return updateDate;
+	}
+
+	public void setUpdateDate(Date updateDate) {
+		this.updateDate = updateDate;
+	}
+
+	public TwseStockBean(String ISINcode){
 		this.ISINcode = ISINcode;
 	}
 		
@@ -78,12 +88,24 @@ public class StockBean {
 	public void setCFICode(String cFICode) {
 		CFICode = cFICode;
 	}
+	
+	public String getYahooFinanceStockID(){
+		if(getMarketType().equals("上市")){
+			return getNumber()+".TW";
+		}else if(getMarketType().equals("上櫃")){
+			return getNumber()+".TWO";
+		}else if(getMarketType().equals("興櫃")){
+			return getNumber()+".TWO";
+		}else{
+			throw new IllegalArgumentException("unknown market type: "+getMarketType());
+		}
+	}
 
 	@Override
 	public String toString() {
-		return "StockJDO [ISINcode=" + ISINcode + ", number=" + number + ", name=" + name + ", startDate="
-				+ startDate + ", marketType=" + marketType + ", industryType=" + industryType + ", CFICode="
-				+ CFICode + "]";
+		return "TwseStockBean [ISINcode=" + ISINcode + ", number=" + number + ", name=" + name + ", startDate="
+				+ startDate + ", marketType=" + marketType + ", industryType=" + industryType + ", CFICode=" + CFICode
+				+ ", updateDate=" + updateDate + "]";
 	}
 
 	@Override
@@ -108,7 +130,7 @@ public class StockBean {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		StockBean other = (StockBean) obj;
+		TwseStockBean other = (TwseStockBean) obj;
 		if (CFICode == null) {
 			if (other.CFICode != null)
 				return false;

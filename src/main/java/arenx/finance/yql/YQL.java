@@ -18,16 +18,16 @@ public class YQL {
 	
 	private final static Logger logger = LoggerFactory.getLogger(YQL.class);
 	
-	private static PersistenceManagerFactory pmf = null;
-	public static void setPersistenceManagerFactory(PersistenceManagerFactory pmf){
-		YQL.pmf=pmf;
-	}
-	public static PersistenceManager getPersistenceManager(){
-		if(pmf==null)
-			pmf = JDOHelper.getPersistenceManagerFactory("arenx.finance");
-		PersistenceManager pm = pmf.getPersistenceManager();
-		return pm;
-	}
+//	private static PersistenceManagerFactory pmf = null;
+//	public static void setPersistenceManagerFactory(PersistenceManagerFactory pmf){
+//		YQL.pmf=pmf;
+//	}
+//	public static PersistenceManager getPersistenceManager(){
+//		if(pmf==null)
+//			pmf = JDOHelper.getPersistenceManagerFactory("arenx.finance");
+//		PersistenceManager pm = pmf.getPersistenceManager();
+//		return pm;
+//	}
 	
 	private static ObjectMapper mapper=new ObjectMapper().enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
 	public static <RESULTS> RESULTS query(Class<RESULTS> clazz, String sql){

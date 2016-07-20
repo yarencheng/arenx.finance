@@ -6,6 +6,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import javax.jdo.JDOHelper;
 import javax.jdo.JDOObjectNotFoundException;
@@ -14,51 +15,43 @@ import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 import javax.jdo.Transaction;
 
+import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import arenx.finance.annotation.Updatable;
-import arenx.finance.twse.Stock;
+import com.google.common.collect.Lists;
+
+import arenx.finance.PMF;
+import arenx.finance.twse.TwseStock;
+import arenx.finance.twse.TwseStockBean;
 import arenx.finance.yql.YQL;
 
-//@Updatable(depedentClass={Stock.class})
 public class Historicaldata{
 
 	private final static Logger logger = LoggerFactory.getLogger(Historicaldata.class);
 	
-//	@Updatable(retry=10)
-	public static List<Runnable> updateDatabase() {
-		List<Runnable>runnables=new LinkedList();
-		for(String symbol:Stock.getStockIDForYahooFinance(Stock.getAll())){
-//		for(String symbol:new String[]{"6187.TWO"}){
-			runnables.add(new Runnable(){
-				String name;
-				public void run(){
-					HistoricaldataBean last = getLast(symbol);
-					Date start = null;
-					Date end = new Date();
-					if(last==null){
-						start = new Calendar.Builder().setDate(2005, 0, 1).build().getTime();
-					}else{
-						Calendar c = Calendar.getInstance();
-						c.setTime(last.getDate());
-						c.add(Calendar.DAY_OF_YEAR, 1);
-						start = c.getTime();
-					}
-					
-					SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-					name = String.format("yahoo.finance.historical: update '%s' between %s~%s", symbol, format.format(start), format.format(end));
-					logger.info("start {}", name);
-					
-					List<HistoricaldataBean> beans = getFromYql(symbol,start,end);
-					insert(beans);
+	public static void updateDB() {
+//		Lists.newArrayList("6187.TWO")	
+		TwseStock.getFromDB().parallel()
+			.map(TwseStockBean::getYahooFinanceStockID)
+			.forEach(id->{
+				HistoricaldataBean last = getLast(id);
+				
+				Date start = null;
+				Date end = new Date();
+				if(last==null){
+					start = new Calendar.Builder().setDate(2005, 0, 1).build().getTime();
+				}else{
+					Calendar c = Calendar.getInstance();
+					c.setTime(last.getDate());
+					c.add(Calendar.DAY_OF_YEAR, 1);
+					start = c.getTime();
 				}
-				public String toString(){
-					return name;
-				}
-			});
-		}
-		return runnables;
+				
+				updateDB(getFromYql(id,start,end).stream());
+				
+			});	
+		
 	}
 	
 	public static List<HistoricaldataBean> getFromYql(String symbol, Date start, Date end) {
@@ -72,7 +65,7 @@ public class Historicaldata{
 		midCalendar.add(Calendar.DAY_OF_YEAR, -1);
 		if(endCalendar.before(midCalendar)){
 			List<HistoricaldataBean>list=getFromYql_halfyear(symbol,start,end);
-			logger.info("get {} records of '{}' between '{}' to '{}'", list.size(), symbol, start, end);
+			logger.debug("get {} records of '{}' between '{}' to '{}'", list.size(), symbol, start, end);
 			return list;
 		}
 		List<HistoricaldataBean>list=new ArrayList<HistoricaldataBean>(500);
@@ -106,7 +99,7 @@ public class Historicaldata{
 	
 	public static List<HistoricaldataBean> get(String symbol, Date start, Date end) {
 		logger.debug("symbol: {}, start{}, end:{}", symbol, start, end);
-		PersistenceManager pm = YQL.getPersistenceManager();
+		PersistenceManager pm = PMF.getPersistenceManager();
 		try {
 			Query query=pm.newQuery(HistoricaldataBean.class);
 			query.setFilter("symbol==_symbol && date >= _dataStart && date <= _dataEnd");
@@ -122,7 +115,7 @@ public class Historicaldata{
 	
 	public static HistoricaldataBean getLast(String symbol) {
 		logger.debug("symbol: {}", symbol);
-		PersistenceManager pm = YQL.getPersistenceManager();
+		PersistenceManager pm = PMF.getPersistenceManager();
 		try {
 			Query query=pm.newQuery(HistoricaldataBean.class);
 			query.setFilter("symbol==_symbol");
@@ -141,41 +134,44 @@ public class Historicaldata{
 		}
 	}
 	
-	public static void insert(List<HistoricaldataBean> beans){
-		insert(beans,false);
-	}
+//	public static void insert(List<HistoricaldataBean> beans){
+//		updateDB(beans.stream());
+//	}
 	
-	private static void insert(List<HistoricaldataBean> beans, boolean force){
-		PersistenceManager pm = YQL.getPersistenceManager();
+	private static void updateDB(Stream<HistoricaldataBean> beans){
+		PersistenceManager pm = PMF.getPersistenceManager();
 		pm.setDetachAllOnCommit(true);
-		Transaction tx = pm.currentTransaction();
+		
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+		
 		try {
-			tx.begin();
-			beans.forEach(bean->{
-				if(force){
-					if(JDOHelper.getObjectState(bean).equals(ObjectState.TRANSIENT)){
-						try {
-							HistoricaldataBean oldBean = pm.getObjectById(HistoricaldataBean.class, new HistoricaldataBean.Key(bean.getSymbol(), bean.getDate()).toString());
-							pm.deletePersistent(oldBean);
-						} catch (JDOObjectNotFoundException e) {
-							
-						}						
-					}
+			beans.sequential().forEach(bean->{
+				try {
+					HistoricaldataBean oldBean = pm.getObjectById(HistoricaldataBean.class, new HistoricaldataBean.Key(bean.getSymbol(), bean.getDate()).toString());
+					
+					logger.info("update {} ${} {}", bean.getSymbol(), bean.getClose(), format.format(bean.getDate()));
+					BeanUtils.copyProperties(oldBean, bean);
+					oldBean.setUpdateDate(new Date());
+					pm.makePersistent(oldBean);
+				} catch (JDOObjectNotFoundException e) {
+					logger.info("create {} ${} {}", bean.getSymbol(), bean.getClose(), format.format(bean.getDate()));
+					bean.setUpdateDate(new Date());
+					pm.makePersistent(bean);
+				} catch (Exception e) {
+					logger.error("Failed to update bean", e);
+					return;
 				}
-				pm.makePersistent(bean);
 			});
-			tx.commit();
+		} catch (Throwable e) {
+			logger.error(e.getMessage(), e);
+			throw e;
 		} finally {
-			if (tx.isActive())
-		    {
-		        tx.rollback();
-		    }
 			pm.close();
 		}
 	}
 	
 	public static List<String> getAllSymbol(){
-		PersistenceManager pm = YQL.getPersistenceManager();
+		PersistenceManager pm = PMF.getPersistenceManager();
 		try {
 			Query query = pm.newQuery(HistoricaldataBean.class);
 			query.setResult("symbol");

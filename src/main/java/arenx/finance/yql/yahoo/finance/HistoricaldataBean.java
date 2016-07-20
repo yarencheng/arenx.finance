@@ -45,6 +45,14 @@ public class HistoricaldataBean {
 
 	public Double getAdjClose() {
 		return adjClose;
+	}	
+
+	public Date getUpdateDate() {
+		return updateDate;
+	}
+
+	public void setUpdateDate(Date updateDate) {
+		this.updateDate = updateDate;
 	}
 
 	@JsonProperty(value = "Symbol")
@@ -71,11 +79,15 @@ public class HistoricaldataBean {
 	@JsonProperty(value = "Adj_Close")
 	@Persistent
 	private Double adjClose;
+	@Persistent
+	private Date updateDate;
+
 
 	@Override
 	public String toString() {
-		return "HistoricaldataBean [symbol=" + symbol + ", date=" + date + ", open=" + open + ", high=" + high + ", low=" + low + ", close=" + close + ", volume=" + volume + ", adjClose=" + adjClose
-				+ "]";
+		return "HistoricaldataBean [symbol=" + symbol + ", date=" + date + ", open=" + open + ", high=" + high
+				+ ", low=" + low + ", close=" + close + ", volume=" + volume + ", adjClose=" + adjClose
+				+ ", updateDate=" + updateDate + "]";
 	}
 
 	@Override
