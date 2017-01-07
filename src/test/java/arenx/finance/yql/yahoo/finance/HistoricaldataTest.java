@@ -81,7 +81,7 @@ public class HistoricaldataTest {
 		pm.close();
 
 		// action
-		List<HistoricaldataBean> actuallBean = Historicaldata.get("6187.TWO", new Calendar.Builder().setDate(2010, 7, 11).build().getTime(),
+		List<HistoricaldataBean> actuallBean = Historicaldata.getFromDB("6187.TWO", new Calendar.Builder().setDate(2010, 7, 11).build().getTime(),
 				new Calendar.Builder().setDate(2010, 7, 14).build().getTime());
 
 		// verify
@@ -106,7 +106,7 @@ public class HistoricaldataTest {
 		pm.close();
 
 		// action
-		List<HistoricaldataBean> actuallBean = Historicaldata.get("6187.TWO", new Calendar.Builder().setDate(2012, 7, 11).build().getTime(),
+		List<HistoricaldataBean> actuallBean = Historicaldata.getFromDB("6187.TWO", new Calendar.Builder().setDate(2012, 7, 11).build().getTime(),
 				new Calendar.Builder().setDate(2012, 7, 14).build().getTime());
 
 		// verify

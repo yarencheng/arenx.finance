@@ -31,22 +31,23 @@ public class Historicaldata{
 	private final static Logger logger = LoggerFactory.getLogger(Historicaldata.class);
 	
 	public static void updateDB() {
-//		Lists.newArrayList("6187.TWO")	
+//		Lists.newArrayList("6187.TWO", "2382.TW")	
 		TwseStock.getFromDB().parallel()
 			.map(TwseStockBean::getYahooFinanceStockID)
 			.forEach(id->{
 				HistoricaldataBean last = getLast(id);
 				
-				Date start = null;
+//				Date start = null;
+				Date start = new Calendar.Builder().setDate(2005, 0, 1).build().getTime();
 				Date end = new Date();
-				if(last==null){
-					start = new Calendar.Builder().setDate(2005, 0, 1).build().getTime();
-				}else{
-					Calendar c = Calendar.getInstance();
-					c.setTime(last.getDate());
-					c.add(Calendar.DAY_OF_YEAR, 1);
-					start = c.getTime();
-				}
+//				if(last==null){
+//					start = new Calendar.Builder().setDate(2005, 0, 1).build().getTime();
+//				}else{
+//					Calendar c = Calendar.getInstance();
+//					c.setTime(last.getDate());
+//					c.add(Calendar.DAY_OF_YEAR, 1);
+//					start = c.getTime();
+//				}
 				
 				updateDB(getFromYql(id,start,end).stream());
 				
@@ -81,23 +82,36 @@ public class Historicaldata{
 	private static List<HistoricaldataBean> getFromYql_halfyear(String symbol, Date start, Date end) {
 		logger.debug("symbol: {}, start{}, end:{}", symbol, start, end);
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-		HistoricaldataResults historicaldataResults = YQL.query(
-			HistoricaldataResults.class,
-			String.format(
-				"select * from yahoo.finance.historicaldata where symbol='%s' and startDate='%s' and endDate='%s'",
-				symbol,
-				format.format(start),
-				format.format(end)
-			)
-		);
-		logger.debug("historicaldataResults: {}", historicaldataResults);
-		if (historicaldataResults == null || historicaldataResults.quote == null) {
-			return new ArrayList<HistoricaldataBean>();
+		
+		while (true) {
+			try {
+				HistoricaldataResults historicaldataResults = YQL.query(
+					HistoricaldataResults.class,
+					String.format(
+						"select * from yahoo.finance.historicaldata where symbol='%s' and startDate='%s' and endDate='%s'",
+						symbol,
+						format.format(start),
+						format.format(end)
+					)
+				);
+	
+				
+				logger.debug("historicaldataResults: {}", historicaldataResults);
+				if (historicaldataResults == null || historicaldataResults.quote == null) {
+					return new ArrayList<HistoricaldataBean>();
+				}
+				return historicaldataResults.quote;
+			} catch (Exception e) {
+				logger.warn("Failed to get historical results. Sleep 1 sec. and retry: {} {} {}", symbol, format.format(start), format.format(end));
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e1) {
+				}
+			}
 		}
-		return historicaldataResults.quote;
 	}
 	
-	public static List<HistoricaldataBean> get(String symbol, Date start, Date end) {
+	public static List<HistoricaldataBean> getFromDB(String symbol, Date start, Date end) {
 		logger.debug("symbol: {}, start{}, end:{}", symbol, start, end);
 		PersistenceManager pm = PMF.getPersistenceManager();
 		try {
@@ -149,12 +163,16 @@ public class Historicaldata{
 				try {
 					HistoricaldataBean oldBean = pm.getObjectById(HistoricaldataBean.class, new HistoricaldataBean.Key(bean.getSymbol(), bean.getDate()).toString());
 					
+					if (oldBean.equals(bean)) {
+						return;
+					}
+					
 					logger.info("update {} ${} {}", bean.getSymbol(), bean.getClose(), format.format(bean.getDate()));
 					BeanUtils.copyProperties(oldBean, bean);
 					oldBean.setUpdateDate(new Date());
 					pm.makePersistent(oldBean);
 				} catch (JDOObjectNotFoundException e) {
-					logger.info("create {} ${} {}", bean.getSymbol(), bean.getClose(), format.format(bean.getDate()));
+					logger.debug("create {} ${} {}", bean.getSymbol(), bean.getClose(), format.format(bean.getDate()));
 					bean.setUpdateDate(new Date());
 					pm.makePersistent(bean);
 				} catch (Exception e) {
